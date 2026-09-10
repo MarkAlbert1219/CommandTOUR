@@ -15,6 +15,23 @@ const GLASS = {
   boxShadow: 'var(--glass-tile-shadow)',
 }
 
+const DEPT_COLORS = {
+  'Executive':                    { bg: 'rgba(234,179,8,0.12)',   border: 'rgba(234,179,8,0.35)',   color: 'rgba(234,179,8,1)',    icon: 'rgba(234,179,8,0.8)'   },
+  'Operations':                   { bg: 'rgba(26,86,219,0.12)',   border: 'rgba(26,86,219,0.35)',   color: 'rgba(26,86,219,1)',    icon: 'rgba(26,86,219,0.8)'   },
+  'Lighting':                     { bg: 'rgba(253,224,71,0.12)',  border: 'rgba(253,224,71,0.35)',  color: 'rgba(180,160,0,1)',    icon: 'rgba(180,160,0,0.8)'   },
+  'Audio & Video':                { bg: 'rgba(139,92,246,0.12)',  border: 'rgba(139,92,246,0.35)',  color: 'rgba(139,92,246,1)',   icon: 'rgba(139,92,246,0.8)'  },
+  'Host':                         { bg: 'rgba(236,72,153,0.12)',  border: 'rgba(236,72,153,0.35)',  color: 'rgba(236,72,153,1)',   icon: 'rgba(236,72,153,0.8)'  },
+  'FMX':                          { bg: 'rgba(249,115,22,0.12)',  border: 'rgba(249,115,22,0.35)',  color: 'rgba(249,115,22,1)',   icon: 'rgba(249,115,22,0.8)'  },
+  'Stuntmanshow Productions':     { bg: 'rgba(239,68,68,0.12)',   border: 'rgba(239,68,68,0.35)',   color: 'rgba(239,68,68,1)',    icon: 'rgba(239,68,68,0.8)'   },
+  'Robot Operator':               { bg: 'rgba(20,184,166,0.12)',  border: 'rgba(20,184,166,0.35)',  color: 'rgba(20,184,166,1)',   icon: 'rgba(20,184,166,0.8)'  },
+  'Monster Truck Driver / Crew':  { bg: 'rgba(34,197,94,0.12)',   border: 'rgba(34,197,94,0.35)',   color: 'rgba(34,197,94,1)',    icon: 'rgba(34,197,94,0.8)'   },
+  'Uncategorized':                { bg: 'rgba(148,163,184,0.12)', border: 'rgba(148,163,184,0.35)', color: 'rgba(148,163,184,1)',  icon: 'rgba(148,163,184,0.8)' },
+}
+
+const DEFAULT_DEPT_COLOR = { bg: 'rgba(148,163,184,0.12)', border: 'rgba(148,163,184,0.35)', color: 'rgba(148,163,184,1)', icon: 'rgba(148,163,184,0.8)' }
+
+const getDeptColor = (deptName) => DEPT_COLORS[deptName] || DEFAULT_DEPT_COLOR
+
 export default function StaffPage() {
   const router = useRouter()
   const { pushNav } = useNav()
@@ -153,13 +170,18 @@ export default function StaffPage() {
           <button
             key={dept.id}
             onClick={() => setActiveDept(dept.id)}
-            style={{
+            style={activeDept === dept.id ? {
               fontSize: 13, padding: '5px 14px', borderRadius: 20, border: '0.5px solid',
-              borderColor: activeDept === dept.id ? 'var(--color-info)' : 'var(--border-default)',
-              background: activeDept === dept.id ? 'rgba(26,86,219,0.10)' : 'transparent',
-              color: activeDept === dept.id ? 'var(--color-info)' : 'var(--text-secondary)',
-              fontWeight: activeDept === dept.id ? 600 : 400,
-              cursor: 'pointer'
+              borderColor: getDeptColor(dept.name).border,
+              background: getDeptColor(dept.name).bg,
+              color: getDeptColor(dept.name).color,
+              fontWeight: 700, cursor: 'pointer'
+            } : {
+              fontSize: 13, padding: '5px 14px', borderRadius: 20, border: '0.5px solid',
+              borderColor: getDeptColor(dept.name).border,
+              background: 'transparent',
+              color: getDeptColor(dept.name).color,
+              fontWeight: 400, cursor: 'pointer', opacity: 0.5
             }}
           >{dept.name}</button>
         ))}
@@ -168,11 +190,12 @@ export default function StaffPage() {
           onClick={() => setActiveDept('uncategorized')}
           style={{
             fontSize: 13, padding: '5px 14px', borderRadius: 20, border: '0.5px solid',
-            borderColor: activeDept === 'uncategorized' ? 'var(--color-info)' : 'var(--border-default)',
-            background: activeDept === 'uncategorized' ? 'rgba(26,86,219,0.10)' : 'transparent',
-            color: activeDept === 'uncategorized' ? 'var(--color-info)' : 'var(--text-secondary)',
-            fontWeight: activeDept === 'uncategorized' ? 600 : 400,
-            cursor: 'pointer'
+            borderColor: getDeptColor('Uncategorized').border,
+            background: activeDept === 'uncategorized' ? getDeptColor('Uncategorized').bg : 'transparent',
+            color: getDeptColor('Uncategorized').color,
+            fontWeight: activeDept === 'uncategorized' ? 700 : 400,
+            cursor: 'pointer',
+            opacity: activeDept === 'uncategorized' ? 1 : 0.5
           }}
         >Uncategorized</button>
       </div>
@@ -199,7 +222,8 @@ export default function StaffPage() {
               {sortedStaff.map(person => {
                 const name = [person.first_name, person.last_name, person.suffix].filter(Boolean).join(' ')
                 const initials = (person.first_name?.[0] || '') + (person.last_name?.[0] || '')
-                const deptName = deptById[person.staff_department_id] || '—'
+                const deptName = departments.find(d => d.id === person.staff_department_id)?.name
+                const dc = getDeptColor(deptName)
                 return (
                   <div
                     key={person.id}
@@ -212,30 +236,25 @@ export default function StaffPage() {
                     onMouseLeave={e => { e.currentTarget.style.background = 'var(--glass-tile-bg)' }}
                   >
                     <div style={{
-                      width: 36, height: 36,
-                      borderRadius: '50%',
-                      border: '1.5px solid var(--color-info)',
-                      background: 'rgba(26,86,219,0.10)',
-                      color: 'var(--color-info)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 13,
-                      fontWeight: 700,
-                      flexShrink: 0,
+                      width: 36, height: 36, borderRadius: '50%',
+                      background: dc.bg,
+                      border: `1.5px solid ${dc.border}`,
+                      color: dc.icon,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                      fontSize: 13, fontWeight: 700
                     }}>
                       {initials}
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                      <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {name}
                         {person.attention_flag && (
                           <span style={{ marginLeft: 6, color: '#d97706' }} title={person.attention_note || 'Needs attention'}>⚠</span>
                         )}
                       </div>
 
-                      <div style={{ fontSize: 14, color: 'var(--color-info)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 600, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {deptName}
                       </div>
 

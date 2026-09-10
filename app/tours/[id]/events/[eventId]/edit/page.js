@@ -6,13 +6,12 @@ import TopNav from '../../../../../../components/TopNav'
 import { getSupabase } from '../../../../../../lib/supabase'
 import { formatLocation } from '@/lib/locationFormat'
 import { useNav } from '../../../../../../context/NavContext'
-import { buildNavEntry } from '../../../../../../lib/navigate'
 import { IconLayoutDashboard } from '@tabler/icons-react'
 
 export default function EditEvent() {
   const router = useRouter()
   const { id, eventId } = useParams()
-  const { setNav, clearNav, pushNav } = useNav()
+  const { setNav, clearNav } = useNav()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -93,7 +92,6 @@ export default function EditEvent() {
         { label: 'Edit Event', tab: 'edit', icon: IconLayoutDashboard },
       ],
     })
-    pushNav(buildNavEntry(`/tours/${id}/events/${eventId}/edit`, 'Edit Event', 'edit'))
     return () => clearNav()
   }, [loading])
 

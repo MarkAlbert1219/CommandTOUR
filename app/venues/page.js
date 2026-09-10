@@ -15,6 +15,28 @@ const GLASS = {
   boxShadow: 'var(--glass-tile-shadow)',
 }
 
+const REGION_PALETTE = [
+  { bg: 'rgba(26,86,219,0.12)',   border: 'rgba(26,86,219,0.35)',   color: 'rgba(26,86,219,1)',   icon: 'rgba(26,86,219,0.8)'   },
+  { bg: 'rgba(139,92,246,0.12)',  border: 'rgba(139,92,246,0.35)',  color: 'rgba(139,92,246,1)',  icon: 'rgba(139,92,246,0.8)'  },
+  { bg: 'rgba(236,72,153,0.12)',  border: 'rgba(236,72,153,0.35)',  color: 'rgba(236,72,153,1)',  icon: 'rgba(236,72,153,0.8)'  },
+  { bg: 'rgba(249,115,22,0.12)',  border: 'rgba(249,115,22,0.35)',  color: 'rgba(249,115,22,1)',  icon: 'rgba(249,115,22,0.8)'  },
+  { bg: 'rgba(239,68,68,0.12)',   border: 'rgba(239,68,68,0.35)',   color: 'rgba(239,68,68,1)',   icon: 'rgba(239,68,68,0.8)'   },
+  { bg: 'rgba(20,184,166,0.12)',  border: 'rgba(20,184,166,0.35)',  color: 'rgba(20,184,166,1)',  icon: 'rgba(20,184,166,0.8)'  },
+  { bg: 'rgba(34,197,94,0.12)',   border: 'rgba(34,197,94,0.35)',   color: 'rgba(34,197,94,1)',   icon: 'rgba(34,197,94,0.8)'   },
+  { bg: 'rgba(234,179,8,0.12)',   border: 'rgba(234,179,8,0.35)',   color: 'rgba(234,179,8,1)',   icon: 'rgba(234,179,8,0.8)'   },
+]
+
+const DEFAULT_REGION_COLOR = { bg: 'rgba(148,163,184,0.12)', border: 'rgba(148,163,184,0.35)', color: 'rgba(148,163,184,1)', icon: 'rgba(148,163,184,0.8)' }
+
+const getRegionColor = (region) => {
+  if (!region) return DEFAULT_REGION_COLOR
+  let hash = 0
+  for (let i = 0; i < region.length; i++) {
+    hash = (hash * 31 + region.charCodeAt(i)) | 0
+  }
+  return REGION_PALETTE[Math.abs(hash) % REGION_PALETTE.length]
+}
+
 export default function Venues() {
   const router = useRouter()
   const { pushNav } = useNav()
@@ -96,13 +118,18 @@ export default function Venues() {
           <button
             key={region}
             onClick={() => setActiveRegion(region)}
-            style={{
+            style={activeRegion === region ? {
               fontSize: 13, padding: '5px 14px', borderRadius: 20, border: '0.5px solid',
-              borderColor: activeRegion === region ? 'var(--color-info)' : 'var(--border-default)',
-              background: activeRegion === region ? 'rgba(26,86,219,0.10)' : 'transparent',
-              color: activeRegion === region ? 'var(--color-info)' : 'var(--text-secondary)',
-              fontWeight: activeRegion === region ? 600 : 400,
-              cursor: 'pointer'
+              borderColor: getRegionColor(region).border,
+              background: getRegionColor(region).bg,
+              color: getRegionColor(region).color,
+              fontWeight: 700, cursor: 'pointer'
+            } : {
+              fontSize: 13, padding: '5px 14px', borderRadius: 20, border: '0.5px solid',
+              borderColor: getRegionColor(region).border,
+              background: 'transparent',
+              color: getRegionColor(region).color,
+              fontWeight: 400, cursor: 'pointer', opacity: 0.5
             }}
           >{region}</button>
         ))}
@@ -123,6 +150,7 @@ export default function Venues() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
               {displayedVenues.map(venue => {
                 const location = [venue.city, venue.state].filter(Boolean).join(', ')
+                const rc = getRegionColor(venue.region)
                 return (
                   <div
                     key={venue.id}
@@ -134,7 +162,13 @@ export default function Venues() {
                     onMouseEnter={e => { e.currentTarget.style.background = 'var(--glass-tile-hover)' }}
                     onMouseLeave={e => { e.currentTarget.style.background = 'var(--glass-tile-bg)' }}
                   >
-                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(26,86,219,0.10)', border: '1.5px solid var(--color-info)', color: 'var(--color-info)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: '50%',
+                      background: rc.bg,
+                      border: `1.5px solid ${rc.border}`,
+                      color: rc.icon,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                    }}>
                       <IconMapPin size={18} stroke={1.5} />
                     </div>
 
@@ -149,7 +183,13 @@ export default function Venues() {
                         {venue.country || '—'}
                       </div>
                       {venue.region ? (
-                        <div style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: 'rgba(26,86,219,0.10)', color: 'var(--color-info)', border: '0.5px solid rgba(26,86,219,0.3)', display: 'inline-flex', width: 'fit-content', marginTop: 4 }}>
+                        <div style={{
+                          fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
+                          background: getRegionColor(venue.region).bg,
+                          color: getRegionColor(venue.region).color,
+                          border: `0.5px solid ${getRegionColor(venue.region).border}`,
+                          display: 'inline-flex', width: 'fit-content', marginTop: 4
+                        }}>
                           {venue.region}
                         </div>
                       ) : (
