@@ -18,7 +18,6 @@ import {
   IconLayoutDashboard,
   IconUsers,
   IconCalendar,
-  IconPlane,
   IconClipboardList,
   IconCheckbox,
   IconNotes,
@@ -34,7 +33,7 @@ const GLASS = {
   boxShadow: 'var(--glass-tile-shadow)',
 }
 
-const STAFFING_GRID = '1.4fr 1.4fr 110px 110px 90px 56px 72px 64px 80px 72px'
+const STAFFING_GRID = '1.6fr 1.6fr 130px 130px 110px 70px 90px 80px 100px 90px'
 
 const TRAVEL_TYPE_COLORS = {
   flight:  { label: 'Flight',  bg: 'rgba(26,86,219,0.12)',  color: '#1a56db',  border: 'rgba(26,86,219,0.35)' },
@@ -274,9 +273,10 @@ export default function EventPage() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState(() => {
     const tab = searchParams.get('tab')
-    if (tab === 'travel') return 'travel'
+    if (tab === 'travel') return 'staffing'
     return tab || 'overview'
   })
+  const [staffingInternalTab, setStaffingInternalTab] = useState('roster')
   const [addingShow, setAddingShow] = useState(false)
   const [newShow, setNewShow] = useState({ show_date: '', notes: '' })
   const [newHour, setNewHour] = useState('7')
@@ -311,14 +311,7 @@ export default function EventPage() {
       items: [
         { label: 'Overview', tab: 'overview', icon: IconLayoutDashboard },
         { label: 'Shows', tab: 'shows', icon: IconTicket, count: event?.shows?.length || undefined },
-        { label: 'Staffing', tab: 'staffing', icon: IconUsers },
-        { label: 'Travel', tab: 'travel', icon: IconPlane, children: [
-          { label: 'Arrivals', tab: 'arrivals' },
-          { label: 'Departures', tab: 'departures' },
-          { label: 'Hotel', tab: 'hotel' },
-          { label: 'Rental Cars', tab: 'rental' },
-          { label: 'Per Diem', tab: 'perdiem' },
-        ]},
+        { label: 'Travel & Staffing', tab: 'staffing', icon: IconUsers },
         { label: 'Schedule', tab: 'schedule', icon: IconCalendar },
         { label: 'Tasks', tab: 'tasks', icon: IconCheckbox },
         { label: 'Notes', tab: 'notes', icon: IconNotes },
@@ -1133,6 +1126,34 @@ export default function EventPage() {
           {activeTab === 'staffing' && (
             <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
 
+              {/* Internal tab bar */}
+              <div style={{ display: 'flex', justifyContent: 'center', flexShrink: 0, padding: '0 0 4px' }}>
+                <div style={{ display: 'flex', gap: 4, background: 'var(--surface-card)', border: '0.5px solid var(--border-default)', borderRadius: 10, padding: 4, width: 'fit-content' }}>
+                  {[
+                    { key: 'roster', label: 'Roster' },
+                    { key: 'arrivals', label: 'Arrivals' },
+                    { key: 'departures', label: 'Departures' },
+                    { key: 'hotel', label: 'Hotel' },
+                    { key: 'rental', label: 'Rental Cars' },
+                    { key: 'perdiem', label: 'Per Diem' },
+                  ].map(t => (
+                    <button
+                      key={t.key}
+                      onClick={() => setStaffingInternalTab(t.key)}
+                      style={{
+                        fontSize: 14, padding: '7px 14px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                        background: staffingInternalTab === t.key ? 'rgba(26,86,219,0.08)' : 'transparent',
+                        color: staffingInternalTab === t.key ? 'var(--color-info)' : 'var(--text-secondary)',
+                        fontWeight: staffingInternalTab === t.key ? 600 : 400,
+                      }}
+                    >{t.label}</button>
+                  ))}
+                </div>
+              </div>
+
+              {staffingInternalTab === 'roster' && (
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+
               {/* Sticky column headers — outside and above the tile */}
               <div style={{ flexShrink: 0, background: 'var(--page-bg)', zIndex: 10 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: STAFFING_GRID, gap: '0 6px', padding: '12px 16px 6px', alignItems: 'center' }}>
@@ -1188,12 +1209,12 @@ export default function EventPage() {
                               style={{ display: 'grid', gridTemplateColumns: STAFFING_GRID, gap: '0 6px', alignItems: 'center', padding: '7px 16px', borderTop: '0.5px solid var(--border-default)', background: rowBg }}
                             >
                               {/* Position */}
-                              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {s.position?.title || '—'}
                               </div>
 
                               {/* Staff name */}
-                              <div style={{ fontSize: 13, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              <div style={{ fontSize: 13, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingLeft: 8 }}>
                                 {hasMismatch && <WarningTriangle />}
                                 {s.staff ? `${s.staff.first_name} ${s.staff.last_name}` : '—'}
                               </div>
@@ -1315,11 +1336,13 @@ export default function EventPage() {
 
                 </div>
               </div>
-            </div>
-          )}
+              </div>
+              )}
 
-          {['travel', 'arrivals', 'departures', 'hotel', 'rental', 'perdiem'].includes(activeTab) && (
-            <TravelHotelTab eventId={eventId} event={event} initialTab={activeTab === 'travel' ? 'arrivals' : activeTab} />
+              {staffingInternalTab !== 'roster' && (
+                <TravelHotelTab eventId={eventId} event={event} initialTab={staffingInternalTab} />
+              )}
+            </div>
           )}
 
           {activeTab === 'schedule' && (

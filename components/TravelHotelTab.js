@@ -240,8 +240,9 @@ export default function TravelHotelTab({ eventId, event, initialTab }) {
   const [rooms, setRooms] = useState([])
   const [tour, setTour] = useState(null)
   const [confirmedStaff, setConfirmedStaff] = useState([])
+  const [staffTravelEntries, setStaffTravelEntries] = useState([])
   const [loading, setLoading] = useState(true)
-  const [travelTab, setTravelTab] = useState(initialTab || 'arrivals')
+  const travelTab = initialTab || 'arrivals'
   const [arrivalSort, setArrivalSort] = useState(() => {
     try { const s = localStorage.getItem(`arrival_sort_${eventId}`); return s ? JSON.parse(s) : { field: 'travel_date', dir: 'asc' } } catch { return { field: 'travel_date', dir: 'asc' } }
   })
@@ -261,9 +262,7 @@ export default function TravelHotelTab({ eventId, event, initialTab }) {
   const [saveError, setSaveError] = useState(null)
   const [perDiemRates, setPerDiemRates] = useState(null)
   const [perDiemMeals, setPerDiemMeals] = useState([])
-  const [perDiemStaff, setPerDiemStaff] = useState([])
   const [showRatesModal, setShowRatesModal] = useState(false)
-  const [showEligibleModal, setShowEligibleModal] = useState(false)
   const [ratesForm, setRatesForm] = useState({ breakfast_rate: '', lunch_rate: '', dinner_rate: '' })
   const [displayArrivals, setDisplayArrivals] = useState([])
   const [displayDepartures, setDisplayDepartures] = useState([])
@@ -286,7 +285,7 @@ export default function TravelHotelTab({ eventId, event, initialTab }) {
 
   const fetchAll = async () => {
     const supabase = getSupabase()
-    const [arrRes, depRes, hotelRes, roomsRes, staffRes, tourRes, rentalRes] = await Promise.all([
+    const [arrRes, depRes, hotelRes, roomsRes, staffRes, tourRes, rentalRes, staffTravelRes] = await Promise.all([
       supabase.from('event_travel_arrivals').select('*, staff(first_name, last_name)').eq('event_id', eventId),
       supabase.from('event_travel_departures').select('*, staff(first_name, last_name)').eq('event_id', eventId),
       supabase.from('event_hotel').select('*').eq('event_id', eventId).maybeSingle(),
@@ -302,7 +301,9 @@ export default function TravelHotelTab({ eventId, event, initialTab }) {
         .not('staff_id', 'is', null),
       event.tour_id ? supabase.from('tours').select('id, name, color').eq('id', event.tour_id).single() : Promise.resolve({ data: null }),
       supabase.from('event_rental_cars').select('*, staff:staff_id(id, first_name, last_name)').eq('event_id', eventId).order('pickup_date', { ascending: true }),
+      supabase.from('event_staff_travel').select('*, staff:staff_id(id, first_name, last_name)').eq('event_id', eventId),
     ])
+    setStaffTravelEntries(staffTravelRes.data || [])
     const confirmedRows = (staffRes.data || []).filter(r => r.confirmed === true || r.status === 'confirmed')
     const confirmedStaffIds = new Set(confirmedRows.map(r => r.staff_id).filter(Boolean))
 
@@ -393,15 +394,35 @@ export default function TravelHotelTab({ eventId, event, initialTab }) {
     setConfirmedStaff(confirmedRows.map(r => r.staff).filter(Boolean))
     if (tourRes.data) setTour(tourRes.data)
 
-    const [perDiemRatesRes, perDiemMealsRes, perDiemStaffRes] = await Promise.all([
+    const [perDiemRatesRes, perDiemMealsRes] = await Promise.all([
       supabase.from('event_perdiem_rates').select('*').eq('event_id', eventId).maybeSingle(),
       supabase.from('event_perdiem_meals').select('*').eq('event_id', eventId).order('meal_date', { ascending: true }),
-      supabase.from('event_perdiem_staff').select('*, staff:staff_id(id, first_name, last_name)').eq('event_id', eventId),
     ])
     if (perDiemRatesRes.data) { setPerDiemRates(perDiemRatesRes.data); setRatesForm({ breakfast_rate: perDiemRatesRes.data.breakfast_rate, lunch_rate: perDiemRatesRes.data.lunch_rate, dinner_rate: perDiemRatesRes.data.dinner_rate }) }
     setPerDiemMeals(perDiemMealsRes.data || [])
-    setPerDiemStaff(perDiemStaffRes.data || [])
-    setRentalCars(rentalRes.data || [])
+
+    // Auto-populate rental cars from staffing checkboxes
+    const existingRentalStaffIds = (rentalRes.data || []).map(r => r.staff_id).filter(Boolean)
+    const staffNeedingRentals = (staffTravelRes.data || [])
+      .filter(t => t.needs_rental && !existingRentalStaffIds.includes(t.staff_id))
+
+    if (staffNeedingRentals.length > 0) {
+      await Promise.all(staffNeedingRentals.map(t =>
+        supabase.from('event_rental_cars').insert([{
+          event_id: eventId,
+          staff_id: t.staff_id,
+        }])
+      ))
+      // Refetch rental cars
+      const { data: updatedRentals } = await supabase
+        .from('event_rental_cars')
+        .select('*, staff:staff_id(id, first_name, last_name)')
+        .eq('event_id', eventId)
+        .order('pickup_date', { ascending: true })
+      setRentalCars(updatedRentals || [])
+    } else {
+      setRentalCars(rentalRes.data || [])
+    }
 
     setLoading(false)
   }
@@ -450,6 +471,42 @@ export default function TravelHotelTab({ eventId, event, initialTab }) {
     }
   }
 
+  const syncTravelType = async (staffId) => {
+    const supabase = getSupabase()
+    const arrivalRow = arrivals.find(a => a.staff_id === staffId)
+    const departureRow = departures.find(d => d.staff_id === staffId)
+
+    const arrivalType = arrivalRow?.travel_type || null
+    const departureType = departureRow?.travel_type || null
+
+    let travelType = 'na'
+    let arrivalMode = null
+    let departureMode = null
+
+    if (arrivalType && departureType) {
+      if (arrivalType === departureType) {
+        travelType = arrivalType
+      } else {
+        travelType = 'multiple'
+        arrivalMode = arrivalType
+        departureMode = departureType
+      }
+    } else if (arrivalType) {
+      travelType = arrivalType
+    } else if (departureType) {
+      travelType = departureType
+    }
+
+    // TODO: ALTER TABLE event_staff_travel ADD COLUMN arrival_mode text; ADD COLUMN departure_mode text;
+    await supabase.from('event_staff_travel').upsert([{
+      event_id: eventId,
+      staff_id: staffId,
+      travel_type: travelType,
+      arrival_mode: arrivalMode,
+      departure_mode: departureMode,
+    }], { onConflict: 'event_id,staff_id', ignoreDuplicates: false })
+  }
+
   const handleUpdateArrival = async (row, field, value) => {
     const s = getSupabase()
     if (row.id == null) {
@@ -463,6 +520,7 @@ export default function TravelHotelTab({ eventId, event, initialTab }) {
       const { error } = await s.from('event_travel_arrivals').update({ [field]: value || null }).eq('id', row.id)
       if (error) { console.error('Failed to update arrival:', error); setSaveError('Failed to save. Please try again.') }
     }
+    if (field === 'travel_type') syncTravelType(row.staff_id)
     fetchAll()
   }
   const handleUpdateDeparture = async (row, field, value) => {
@@ -478,6 +536,7 @@ export default function TravelHotelTab({ eventId, event, initialTab }) {
       const { error } = await s.from('event_travel_departures').update({ [field]: value || null }).eq('id', row.id)
       if (error) { console.error('Failed to update departure:', error); setSaveError('Failed to save. Please try again.') }
     }
+    if (field === 'travel_type') syncTravelType(row.staff_id)
     fetchAll()
   }
   const handleRemoveArrival = async (id) => {
@@ -589,7 +648,11 @@ export default function TravelHotelTab({ eventId, event, initialTab }) {
   }
 
   const roomedStaffIds = rooms.flatMap(r => [r.staff_id_1, r.staff_id_2]).filter(Boolean)
-  const unroomedStaff = confirmedStaff.filter(s => !roomedStaffIds.includes(s.id))
+  const unroomedStaff = staffTravelEntries
+    .filter(t => t.needs_hotel)
+    .filter(t => !rooms.some(r => r.staff_id_1 === t.staff_id || r.staff_id_2 === t.staff_id))
+    .map(t => t.staff)
+    .filter(Boolean)
   const handleAddSelectedToRooming = async () => {
     const supabase = getSupabase()
     const results = await Promise.all(selectedUnroomed.map(staffId =>
@@ -653,25 +716,15 @@ export default function TravelHotelTab({ eventId, event, initialTab }) {
     fetchAll()
   }
 
-  const handleToggleExtraDay = async (perDiemStaffId, current) => {
+  // SQL: ALTER TABLE event_staff_travel ADD COLUMN IF NOT EXISTS extra_day boolean DEFAULT false;
+  // extra_day doesn't exist on event_staff_travel yet — reads as null/false until the column is added.
+  const handleToggleExtraDay = async (staffTravelId, current) => {
     const supabase = getSupabase()
-    await supabase.from('event_perdiem_staff').update({ extra_day: !current }).eq('id', perDiemStaffId)
+    await supabase.from('event_staff_travel').update({ extra_day: !current }).eq('id', staffTravelId)
     fetchAll()
   }
 
-  const handleAddPerDiemStaff = async (staffId) => {
-    const supabase = getSupabase()
-    await supabase.from('event_perdiem_staff').insert([{ event_id: eventId, staff_id: staffId, extra_day: false }])
-    fetchAll()
-  }
-
-  const handleRemovePerDiemStaff = async (perDiemStaffId) => {
-    const supabase = getSupabase()
-    await supabase.from('event_perdiem_staff').delete().eq('id', perDiemStaffId)
-    fetchAll()
-  }
-
-  const calcStaffPerDiem = (staffEntry) => {
+  const calcStaffPerDiem = (entry) => {
     if (!perDiemRates) return 0
     const { breakfast_rate, lunch_rate, dinner_rate } = perDiemRates
     const dailyMax = (breakfast_rate || 0) + (lunch_rate || 0) + (dinner_rate || 0)
@@ -685,7 +738,7 @@ export default function TravelHotelTab({ eventId, event, initialTab }) {
       if (!meal?.dinner_provided) dayTotal += (dinner_rate || 0)
       total += dayTotal
     }
-    if (staffEntry.extra_day) total += dailyMax
+    if (entry.extra_day) total += dailyMax
     return total
   }
 
@@ -694,36 +747,17 @@ export default function TravelHotelTab({ eventId, event, initialTab }) {
   const ROOM_GRID = '1.2fr 1.2fr 0.8fr 0.7fr 0.7fr 1fr 24px'
   const eventDates = getEventDates()
   const dailyMax = perDiemRates ? (Number(perDiemRates.breakfast_rate) || 0) + (Number(perDiemRates.lunch_rate) || 0) + (Number(perDiemRates.dinner_rate) || 0) : 0
-  const grandTotal = perDiemStaff.reduce((sum, s) => sum + calcStaffPerDiem(s), 0)
+  const perDiemEligible = staffTravelEntries.filter(t => t.needs_perdiem)
+  const grandTotal = perDiemEligible.reduce((sum, s) => sum + calcStaffPerDiem(s), 0)
   const MEAL_TYPES = [
     { key: 'breakfast_provided', label: 'Breakfast', rate: perDiemRates?.breakfast_rate },
     { key: 'lunch_provided', label: 'Lunch', rate: perDiemRates?.lunch_rate },
     { key: 'dinner_provided', label: 'Dinner', rate: perDiemRates?.dinner_rate },
   ]
 
-  const TABS = [
-    { key: 'arrivals', label: `Arrivals (${arrivals.length})` },
-    { key: 'departures', label: `Departures (${departures.length})` },
-    { key: 'hotel', label: 'Hotel' },
-    { key: 'rental', label: `Rental Cars (${rentalCars.length})` },
-    { key: 'perdiem', label: 'Per Diem' },
-  ]
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', gap: 0 }}>
       {saveError && <p style={{ color: 'var(--color-danger)', fontSize: 12, margin: 0 }}>{saveError}</p>}
-
-      <div style={{ display: 'flex', justifyContent: 'center', flexShrink: 0, padding: '0 0 4px' }}>
-        <div style={{ display: 'flex', gap: 4, background: 'var(--surface-card)', border: '0.5px solid var(--border-default)', borderRadius: 10, padding: 4, width: 'fit-content' }}>
-          {TABS.map(t => (
-            <button key={t.key} onClick={() => setTravelTab(t.key)}
-              style={travelTab === t.key
-                ? { background: 'rgba(26,86,219,0.08)', color: 'var(--color-info)', fontWeight: 600, fontSize: 14, padding: '7px 14px', borderRadius: 6, border: 'none', cursor: 'pointer' }
-                : { background: 'transparent', color: 'var(--text-secondary)', fontWeight: 400, fontSize: 14, padding: '7px 14px', borderRadius: 6, border: 'none', cursor: 'pointer' }}
-            >{t.label}</button>
-          ))}
-        </div>
-      </div>
 
       {/* ARRIVALS */}
       {travelTab === 'arrivals' && (
@@ -1030,10 +1064,10 @@ export default function TravelHotelTab({ eventId, event, initialTab }) {
                   </div>
                 {/* Scrollable rows */}
                 <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-                  {perDiemStaff.length === 0 && (
+                  {perDiemEligible.length === 0 && (
                     <div style={{ padding: '16px', fontSize: 13, color: 'var(--text-muted)' }}>No eligible staff yet.</div>
                   )}
-                  {perDiemStaff.map((entry, idx) => {
+                  {perDiemEligible.map((entry, idx) => {
                     const rowBg = idx % 2 === 0 ? (isLightMode ? '#ffffff' : 'var(--surface-card)') : (isLightMode ? 'rgba(0,0,0,0.025)' : 'rgba(255,255,255,0.025)')
                     return (
                       <div key={entry.id}
@@ -1050,10 +1084,6 @@ export default function TravelHotelTab({ eventId, event, initialTab }) {
                       </div>
                     )
                   })}
-                </div>
-                {/* Footer */}
-                <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderTop: '0.5px solid var(--border-default)' }}>
-                  <span onClick={() => setShowEligibleModal(true)} style={{ fontSize: 13, color: 'var(--color-info)', cursor: 'pointer' }}>+ Add staff</span>
                 </div>
                 </div>
               </div>
@@ -1176,35 +1206,6 @@ export default function TravelHotelTab({ eventId, event, initialTab }) {
                 onMouseLeave={unhoverBlue}
               >Cancel</button>
               <button onClick={handleSaveRates} style={{ fontSize: 13, padding: '8px 16px', borderRadius: 8, border: 'none', background: 'var(--color-info)', color: '#ffffff', cursor: 'pointer' }}>Save</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ELIGIBLE STAFF MODAL */}
-      {showEligibleModal && (
-        <div style={OVERLAY} onClick={() => setShowEligibleModal(false)}>
-          <div style={{ background: 'var(--surface-card)', border: '0.5px solid var(--border-default)', borderRadius: 14, padding: 24, width: 400, maxHeight: 480, display: 'flex', flexDirection: 'column', gap: 14 }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>Per Diem Eligible Staff</div>
-              <div onClick={() => setShowEligibleModal(false)} style={{ fontSize: 18, color: 'var(--text-muted)', cursor: 'pointer' }}>×</div>
-            </div>
-            <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {confirmedStaff.map(s => {
-                const entry = perDiemStaff.find(p => p.staff_id === s.id)
-                const checked = !!entry
-                return (
-                  <div key={s.id}
-                    onClick={() => checked ? handleRemovePerDiemStaff(entry.id) : handleAddPerDiemStaff(s.id)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 7, cursor: 'pointer' }}
-                    onMouseEnter={hoverRow}
-                    onMouseLeave={unhoverRow}
-                  >
-                    <Checkbox checked={checked} onClick={() => {}} />
-                    <span style={{ fontSize: 14, color: 'var(--text-primary)' }}>{s.first_name} {s.last_name}</span>
-                  </div>
-                )
-              })}
             </div>
           </div>
         </div>
