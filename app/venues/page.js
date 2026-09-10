@@ -6,6 +6,7 @@ import { IconMapPin } from '@tabler/icons-react'
 import { getSupabase } from '../../lib/supabase'
 import { useNav } from '../../context/NavContext'
 import { buildNavEntry } from '../../lib/navigate'
+import { useAppColors } from '../../hooks/useAppColors'
 
 const GLASS = {
   background: 'var(--glass-tile-bg)',
@@ -15,31 +16,10 @@ const GLASS = {
   boxShadow: 'var(--glass-tile-shadow)',
 }
 
-const REGION_PALETTE = [
-  { bg: 'rgba(26,86,219,0.12)',   border: 'rgba(26,86,219,0.35)',   color: 'rgba(26,86,219,1)',   icon: 'rgba(26,86,219,0.8)'   },
-  { bg: 'rgba(139,92,246,0.12)',  border: 'rgba(139,92,246,0.35)',  color: 'rgba(139,92,246,1)',  icon: 'rgba(139,92,246,0.8)'  },
-  { bg: 'rgba(236,72,153,0.12)',  border: 'rgba(236,72,153,0.35)',  color: 'rgba(236,72,153,1)',  icon: 'rgba(236,72,153,0.8)'  },
-  { bg: 'rgba(249,115,22,0.12)',  border: 'rgba(249,115,22,0.35)',  color: 'rgba(249,115,22,1)',  icon: 'rgba(249,115,22,0.8)'  },
-  { bg: 'rgba(239,68,68,0.12)',   border: 'rgba(239,68,68,0.35)',   color: 'rgba(239,68,68,1)',   icon: 'rgba(239,68,68,0.8)'   },
-  { bg: 'rgba(20,184,166,0.12)',  border: 'rgba(20,184,166,0.35)',  color: 'rgba(20,184,166,1)',  icon: 'rgba(20,184,166,0.8)'  },
-  { bg: 'rgba(34,197,94,0.12)',   border: 'rgba(34,197,94,0.35)',   color: 'rgba(34,197,94,1)',   icon: 'rgba(34,197,94,0.8)'   },
-  { bg: 'rgba(234,179,8,0.12)',   border: 'rgba(234,179,8,0.35)',   color: 'rgba(234,179,8,1)',   icon: 'rgba(234,179,8,0.8)'   },
-]
-
-const DEFAULT_REGION_COLOR = { bg: 'rgba(148,163,184,0.12)', border: 'rgba(148,163,184,0.35)', color: 'rgba(148,163,184,1)', icon: 'rgba(148,163,184,0.8)' }
-
-const getRegionColor = (region) => {
-  if (!region) return DEFAULT_REGION_COLOR
-  let hash = 0
-  for (let i = 0; i < region.length; i++) {
-    hash = (hash * 31 + region.charCodeAt(i)) | 0
-  }
-  return REGION_PALETTE[Math.abs(hash) % REGION_PALETTE.length]
-}
-
 export default function Venues() {
   const router = useRouter()
   const { pushNav } = useNav()
+  const { getRegionColor } = useAppColors()
   const [venues, setVenues] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -119,17 +99,17 @@ export default function Venues() {
             key={region}
             onClick={() => setActiveRegion(region)}
             style={activeRegion === region ? {
-              fontSize: 13, padding: '5px 14px', borderRadius: 20, border: '0.5px solid',
-              borderColor: getRegionColor(region).border,
+              fontSize: 13, padding: '5px 14px', borderRadius: 20,
+              border: `0.5px solid ${getRegionColor(region).color}`,
               background: getRegionColor(region).bg,
               color: getRegionColor(region).color,
-              fontWeight: 700, cursor: 'pointer'
+              fontWeight: 700, cursor: 'pointer', opacity: 1
             } : {
-              fontSize: 13, padding: '5px 14px', borderRadius: 20, border: '0.5px solid',
-              borderColor: getRegionColor(region).border,
+              fontSize: 13, padding: '5px 14px', borderRadius: 20,
+              border: `0.5px solid ${getRegionColor(region).color}`,
               background: 'transparent',
               color: getRegionColor(region).color,
-              fontWeight: 400, cursor: 'pointer', opacity: 0.5
+              fontWeight: 400, cursor: 'pointer', opacity: 1
             }}
           >{region}</button>
         ))}
@@ -173,23 +153,17 @@ export default function Venues() {
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                      <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {venue.name}
                       </div>
-                      <div style={{ fontSize: 14, color: 'var(--color-info)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {location || '—'}
                       </div>
                       <div style={{ fontSize: 14, color: 'var(--text-primary)' }}>
                         {venue.country || '—'}
                       </div>
                       {venue.region ? (
-                        <div style={{
-                          fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
-                          background: getRegionColor(venue.region).bg,
-                          color: getRegionColor(venue.region).color,
-                          border: `0.5px solid ${getRegionColor(venue.region).border}`,
-                          display: 'inline-flex', width: 'fit-content', marginTop: 4
-                        }}>
+                        <div style={{ fontSize: 13, color: getRegionColor(venue.region).color, fontWeight: 400 }}>
                           {venue.region}
                         </div>
                       ) : (

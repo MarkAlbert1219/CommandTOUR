@@ -6,6 +6,7 @@ import { getSupabase } from '../../lib/supabase'
 import { IconSettings } from '@tabler/icons-react'
 import { useNav } from '../../context/NavContext'
 import { buildNavEntry } from '../../lib/navigate'
+import { useAppColors } from '../../hooks/useAppColors'
 
 const GLASS = {
   background: 'var(--glass-tile-bg)',
@@ -15,26 +16,10 @@ const GLASS = {
   boxShadow: 'var(--glass-tile-shadow)',
 }
 
-const DEPT_COLORS = {
-  'Executive':                    { bg: 'rgba(234,179,8,0.12)',   border: 'rgba(234,179,8,0.35)',   color: 'rgba(234,179,8,1)',    icon: 'rgba(234,179,8,0.8)'   },
-  'Operations':                   { bg: 'rgba(26,86,219,0.12)',   border: 'rgba(26,86,219,0.35)',   color: 'rgba(26,86,219,1)',    icon: 'rgba(26,86,219,0.8)'   },
-  'Lighting':                     { bg: 'rgba(253,224,71,0.12)',  border: 'rgba(253,224,71,0.35)',  color: 'rgba(180,160,0,1)',    icon: 'rgba(180,160,0,0.8)'   },
-  'Audio & Video':                { bg: 'rgba(139,92,246,0.12)',  border: 'rgba(139,92,246,0.35)',  color: 'rgba(139,92,246,1)',   icon: 'rgba(139,92,246,0.8)'  },
-  'Host':                         { bg: 'rgba(236,72,153,0.12)',  border: 'rgba(236,72,153,0.35)',  color: 'rgba(236,72,153,1)',   icon: 'rgba(236,72,153,0.8)'  },
-  'FMX':                          { bg: 'rgba(249,115,22,0.12)',  border: 'rgba(249,115,22,0.35)',  color: 'rgba(249,115,22,1)',   icon: 'rgba(249,115,22,0.8)'  },
-  'Stuntmanshow Productions':     { bg: 'rgba(239,68,68,0.12)',   border: 'rgba(239,68,68,0.35)',   color: 'rgba(239,68,68,1)',    icon: 'rgba(239,68,68,0.8)'   },
-  'Robot Operator':               { bg: 'rgba(20,184,166,0.12)',  border: 'rgba(20,184,166,0.35)',  color: 'rgba(20,184,166,1)',   icon: 'rgba(20,184,166,0.8)'  },
-  'Monster Truck Driver / Crew':  { bg: 'rgba(34,197,94,0.12)',   border: 'rgba(34,197,94,0.35)',   color: 'rgba(34,197,94,1)',    icon: 'rgba(34,197,94,0.8)'   },
-  'Uncategorized':                { bg: 'rgba(148,163,184,0.12)', border: 'rgba(148,163,184,0.35)', color: 'rgba(148,163,184,1)',  icon: 'rgba(148,163,184,0.8)' },
-}
-
-const DEFAULT_DEPT_COLOR = { bg: 'rgba(148,163,184,0.12)', border: 'rgba(148,163,184,0.35)', color: 'rgba(148,163,184,1)', icon: 'rgba(148,163,184,0.8)' }
-
-const getDeptColor = (deptName) => DEPT_COLORS[deptName] || DEFAULT_DEPT_COLOR
-
 export default function StaffPage() {
   const router = useRouter()
   const { pushNav } = useNav()
+  const { getDeptColor } = useAppColors()
   const [allStaff, setAllStaff] = useState([])
   const [departments, setDepartments] = useState([])
   const [loading, setLoading] = useState(true)
@@ -171,17 +156,17 @@ export default function StaffPage() {
             key={dept.id}
             onClick={() => setActiveDept(dept.id)}
             style={activeDept === dept.id ? {
-              fontSize: 13, padding: '5px 14px', borderRadius: 20, border: '0.5px solid',
-              borderColor: getDeptColor(dept.name).border,
+              fontSize: 13, padding: '5px 14px', borderRadius: 20,
+              border: `0.5px solid ${getDeptColor(dept.name).color}`,
               background: getDeptColor(dept.name).bg,
               color: getDeptColor(dept.name).color,
-              fontWeight: 700, cursor: 'pointer'
+              fontWeight: 700, cursor: 'pointer', opacity: 1
             } : {
-              fontSize: 13, padding: '5px 14px', borderRadius: 20, border: '0.5px solid',
-              borderColor: getDeptColor(dept.name).border,
+              fontSize: 13, padding: '5px 14px', borderRadius: 20,
+              border: `0.5px solid ${getDeptColor(dept.name).color}`,
               background: 'transparent',
               color: getDeptColor(dept.name).color,
-              fontWeight: 400, cursor: 'pointer', opacity: 0.5
+              fontWeight: 400, cursor: 'pointer', opacity: 1
             }}
           >{dept.name}</button>
         ))}
@@ -189,13 +174,13 @@ export default function StaffPage() {
         <button
           onClick={() => setActiveDept('uncategorized')}
           style={{
-            fontSize: 13, padding: '5px 14px', borderRadius: 20, border: '0.5px solid',
-            borderColor: getDeptColor('Uncategorized').border,
+            fontSize: 13, padding: '5px 14px', borderRadius: 20,
+            border: `0.5px solid ${getDeptColor('Uncategorized').color}`,
             background: activeDept === 'uncategorized' ? getDeptColor('Uncategorized').bg : 'transparent',
             color: getDeptColor('Uncategorized').color,
             fontWeight: activeDept === 'uncategorized' ? 700 : 400,
             cursor: 'pointer',
-            opacity: activeDept === 'uncategorized' ? 1 : 0.5
+            opacity: 1
           }}
         >Uncategorized</button>
       </div>
@@ -254,7 +239,7 @@ export default function StaffPage() {
                         )}
                       </div>
 
-                      <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 600, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontSize: 14, color: 'var(--text-secondary)', fontWeight: 600, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {deptName}
                       </div>
 
